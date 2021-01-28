@@ -8,6 +8,12 @@
 
 using namespace std;
 
+//----------------task_1------------------------------------------------------------------------------------------------
+
+
+
+//----------------task_2------------------------------------------------------------------------------------------------
+
 static const int NumTasks = 4 * 1024 * 1024;
 static const int NumProducers = 1;
 static const int NumConsumers = 1;
@@ -43,6 +49,7 @@ private:
 public:
     void Push(uint8_t val) {
         unique_lock<mutex> uLocker(mutx);
+        // поток становится в ожидание, если предикат ложен
         pushConditionVariable.wait(uLocker, [this] {return !isFull(); } );
         queue.push(val);
         popConditionVariable.notify_all();
@@ -74,9 +81,20 @@ void count_static_sum() {
     Counter = 0;
     for (int i = 0; i < NumConsumers; i++) { consumers.push_back(thread(Consumer<StaticQueue>, ref(st))); }
     for (int i = 0; i < NumProducers; i++) { producers.push_back(thread(Producer<StaticQueue>, ref(st))); }
+
+    auto start = chrono::system_clock::now();
     for (int i = 0; i < NumConsumers; i++) { consumers[i].join(); }
     for (int i = 0; i < NumProducers; i++) { producers[i].join(); }
-    cout << "result by static: " << Sum << endl;
+    auto end = std::chrono::system_clock::now();
+
+    cout << "Result by static: " << Sum << endl;
+
+    cout << "Sum equals: ";
+    if(Sum == NumProducers * NumTasks) cout << "true" << endl;
+    else cout << "false" << endl;
+
+    cout << "Time check: " << chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms" << endl;
+
     consumers.clear();
     producers.clear();
 }
@@ -86,15 +104,35 @@ void count_dinamic_sum() {
     Counter = 0;
     for (int i = 0; i < NumConsumers; i++) { consumers.push_back(thread(Consumer<DynamicQueue>, ref(di))); }
     for (int i = 0; i < NumProducers; i++) { producers.push_back(thread(Producer<DynamicQueue>, ref(di))); }
+
+    auto start = chrono::system_clock::now();
     for (int i = 0; i < NumConsumers; i++) { consumers[i].join(); }
     for (int i = 0; i < NumProducers; i++) { producers[i].join(); }
-    cout << "result by dinamic: " << Sum << endl;
+    auto end = std::chrono::system_clock::now();
+
+    cout << "Result by dinamic: " << Sum << endl;
+
+    cout << "Sum equals: ";
+    if(Sum == NumProducers * NumTasks) cout << "true" << endl;
+    else cout << "false" << endl;
+
+    cout << "Time check: " << chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << " ms" << endl;
+
     consumers.clear();
     producers.clear();
 }
-
-int main(int argc, const char * argv[]) {
+//----------------------------------------------------------------------------------------------------------------------
+int main(int argc, const char * argv[])
+{
+    //------task_1------
+    cout << "----------Task_1----------" << endl;
+    cout << endl;
+    //------task_2------
+    cout << "----------Task_2----------" << endl;
     count_static_sum();
+    cout << endl;
     count_dinamic_sum();
+    cout << "--------------------------" << endl;
+    //-----------------
     return 0;
 }
