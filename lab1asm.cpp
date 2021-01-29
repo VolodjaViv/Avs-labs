@@ -4,10 +4,10 @@
 using namespace std;
 
 void fillArrayRandVal(_int8 *a, _int8 *b, _int8 *c, _int16 *d) {
-    srand((unsigned)time(0));
-    // случайное значение от -128 до +127
-    int min = -128, max = 127;
-    for (int i = 0; i < 8; i++) { a[i] = min + rand() % (2 * max + 1); b[i] = min + rand() % (2 * max + 1); c[i] = min + rand() % (2 * max + 1); d[i] = min + rand() % (2 * max + 1); }
+    // случайное значение от -128 до +127 и от -32768 до +32767
+    int min_8 = -128, max_8 = 127;
+    int min_16 = -32513, max_16 = 32512; 
+    for (int i = 0; i < 8; i++) { a[i] = min_8 + rand() % (2 * max_8 + 1); b[i] = min_8 + rand() % (2 * max_8 + 1); c[i] = min_8 + rand() % (2 * max_8 + 1); d[i] = min_16 + rand() % (2 * max_16 + 1); }
 }
 
 void showArrays(_int8 *a, _int8 *b, _int8 *c, _int16 *d) {
