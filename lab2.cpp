@@ -12,6 +12,7 @@ using namespace std;
 
 const int size_of_byte_array = 1024 * 1024;
 const int threads[] = { 4, 8, 16, 32 };
+vector<int8_t> byte_array(size_of_byte_array);
 
 class Counter {
 protected:
@@ -26,21 +27,12 @@ public:
 
 class Atomic : public Counter {
 private:
-    atomic_bool _busy;
+    atomic_int _indexer = 0;
 public:
-    Atomic(const int& size_of_byte_array) : Counter(size_of_byte_array) { _busy = false; }
+    void set_zero_id() { _indexer = 0; }
+    Atomic(const int& size_of_byte_array) : Counter(size_of_byte_array) {}
     int swap_to_next_id() override {
-        int treated_id;
-        while (true) {
-            bool is_busy = false;
-            if (!_busy.compare_exchange_strong(is_busy, true))
-                continue;
-            treated_id = _id;
-            ++_id;
-            _busy = false;
-            break;
-        }
-        return treated_id;
+        return _indexer++;
     }
 };
 
@@ -52,30 +44,53 @@ public:
     int swap_to_next_id() override { int id; _mutx.lock(); id = _id; _id++; _mutx.unlock(); return id; }
 };
 
-void initialize_array_with_zeros(int8_t* _array_of_bytes) {
-    for (int i = 0; i < size_of_byte_array; i++) _array_of_bytes[i] = 0;
+void initialize_array_with_zeros(vector<int8_t>& _array_of_bytes) {
+    for (int i = 0; i < size_of_byte_array; i++) _array_of_bytes.at(i) = 0;
 }
 
-bool result_array_cheking(const int8_t* result_array_of_bytes) {
+bool result_array_cheking(const vector<int8_t>& result_array_of_bytes) {
     for (int i = 0; i < size_of_byte_array; i++)
-        if (result_array_of_bytes[i] != 1) return false;
+        if ((int)result_array_of_bytes.at(i) != 1) return false;
     return true;
 }
 
-void exucutable_func(Counter* counter, int8_t* _array_of_bytes, const bool* sleep) {
-    while (counter->check_for_continuation()) {
-        _array_of_bytes[counter->swap_to_next_id()]++;
-        if (*sleep) this_thread::sleep_for(chrono::nanoseconds(10));
-    }
+void exucutable_func(Counter* counter, vector<int8_t>& array_of_bytes, const bool sleep) {
+    int indexer;
+    do {
+        indexer = counter->swap_to_next_id();
+        if (indexer >= size_of_byte_array) break;
+        array_of_bytes.at(indexer) += 1;
+        if (sleep) this_thread::sleep_for(chrono::nanoseconds(10));
+    } while (1);
 }
 
-void run(Counter& counter, int8_t* array_of_bytes, const int& threadNum, const bool& sleep) {
+/*
+void exucutable_func(Counter* counter, vector<int8_t>& array_of_bytes, const bool sleep)
+{
+    while (counter->check_for_continuation()) {
+        //_array_of_bytes[counter->swap_to_next_id()]++;
+        array_of_bytes.at(counter->swap_to_next_id())++;
+        long temp = (long)counter->swap_to_next_id();
+        array_of_bytes.at(temp) += 1;
+        printf("index = %d data = %d \n", temp, array_of_bytes.at(temp));
+        if (sleep) this_thread::sleep_for(chrono::nanoseconds(10));
+    }
+}
+*/
+
+void run(Counter& counter, vector<int8_t>& array_of_bytes, const int& threadNum, const bool sleep) {
     counter.set_zero_id();
     initialize_array_with_zeros(array_of_bytes);
-
+    
     chrono::steady_clock::time_point begin = chrono::steady_clock::now();
     thread* threads = new thread[threadNum];
-    for (int i = 0; i < threadNum; i++) { threads[i] = thread(exucutable_func, &counter, array_of_bytes, &sleep); }
+
+    //thread test(exucutable_func, &counter, ref(array_of_bytes), sleep);
+    //thread test1(exucutable_func, &counter, ref(array_of_bytes), sleep);
+    //test.join();
+    //test1.join();
+    
+    for (int i = 0; i < threadNum; i++) { threads[i] = thread(exucutable_func, &counter, ref(array_of_bytes), sleep); }
     for (int i = 0; i < threadNum; i++) { threads[i].join(); }
     chrono::steady_clock::time_point end = chrono::steady_clock::now();
 
@@ -84,7 +99,8 @@ void run(Counter& counter, int8_t* array_of_bytes, const int& threadNum, const b
 }
 
 void print_theads_result() {
-    int8_t* byte_array = new int8_t[size_of_byte_array];
+    //int8_t* byte_array = new int8_t[size_of_byte_array];
+    //vector<int8_t> byte_array(size_of_byte_array);
     Atomic atomic_counter(size_of_byte_array);
     Mutex mutex_counter(size_of_byte_array);
     for (int i = 0; i < 4; i++) {
@@ -94,7 +110,10 @@ void print_theads_result() {
         cout << "Using atomic: " << endl << endl;
         run(atomic_counter, byte_array, threads[i], false);
         cout << endl << "Using thread sleeping: " << endl;
+        //initialize_array_with_zeros(byte_array);
+        atomic_counter.set_zero_id();
         run(atomic_counter, byte_array, threads[i], true);
+        atomic_counter.set_zero_id();
         cout << "--------------------------";
         cout << endl << "Using mutex: " << endl << endl;
         run(mutex_counter, byte_array, threads[i], false);
